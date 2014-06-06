@@ -1,3 +1,4 @@
+// http://osxbook.com/book/bonus/chapter2/alterkeys/
 // alterkeys.c
 // http://osxbook.com
 //
@@ -9,6 +10,11 @@
 // checkbox in the Universal Access system preference pane.
 
 #include <ApplicationServices/ApplicationServices.h>
+#define TRUE 1
+#define FALSE 0
+
+int shiftPressed = 0;
+int lastKeyShift = FALSE;
 
 // This callback will be invoked every time there is a keystroke.
 //
@@ -16,19 +22,48 @@ CGEventRef
 myCGEventCallback(CGEventTapProxy proxy, CGEventType type,
                   CGEventRef event, void *refcon)
 {
+
     // Paranoid sanity check.
-    if ((type != kCGEventKeyDown) && (type != kCGEventKeyUp))
+    if ((type != kCGEventKeyDown) &&
+            (type != kCGEventKeyUp) &&
+            (type != kCGEventFlagsChanged))
         return event;
 
     // The incoming keycode.
-    CGKeyCode keycode = (CGKeyCode)CGEventGetIntegerValueField(
-                                       event, kCGKeyboardEventKeycode);
+    CGKeyCode keycode = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
+    //CGEventFlags currentFlag;
 
-    // Swap 'a' (keycode=0) and 'z' (keycode=6).
-    if (keycode == (CGKeyCode)0)
-        keycode = (CGKeyCode)6;
-    else if (keycode == (CGKeyCode)6)
-        keycode = (CGKeyCode)0;
+    // two events are fired, shift down and shift up
+    // shift key pressed
+    if ((keycode == (CGKeyCode)56) || (keycode == (CGKeyCode)60))
+    {
+        //currentFlag = CGEventGetFlags(event)&kCGEventFlagMaskShift;
+        // printf("event flag: %llu\n", currentFlag);
+        // printf("shift pressed\n");
+        if (lastKeyShift == TRUE)
+        {
+            shiftPressed = TRUE;
+        }
+        else
+        {
+            lastKeyShift = TRUE;
+            shiftPressed = FALSE;
+        }
+    }
+    else
+    {
+        if (shiftPressed == TRUE)
+        {
+        //currentFlag = CGEventGetFlags(event)&kCGEventFlagMaskShift;
+            CGEventSetFlags(event, kCGEventFlagMaskShift);
+            shiftPressed = FALSE;
+        }
+        //currentFlag = CGEventGetFlags(event)&kCGEventFlagMaskShift;
+        //printf("event flag: %llu\n", currentFlag);
+        //printf("keycode   : %d\n", keycode);
+        lastKeyShift = FALSE;
+    }
+    // printf("shift pressed => %d\n", shiftPressed);
 
     // Set the modified keycode field in the event.
     CGEventSetIntegerValueField(
@@ -46,7 +81,8 @@ main(void)
     CFRunLoopSourceRef runLoopSource;
 
     // Create an event tap. We are interested in key presses.
-    eventMask = ((1 << kCGEventKeyDown) | (1 << kCGEventKeyUp));
+    // CGEventTypes.h, also with shift and command keys
+    eventMask = ((1 << kCGEventKeyDown) | (1 << kCGEventKeyUp)) | (1 << kCGEventFlagsChanged);
     eventTap = CGEventTapCreate(kCGSessionEventTap, kCGHeadInsertEventTap, 0, eventMask, myCGEventCallback, NULL);
     if (!eventTap) {
         fprintf(stderr, "failed to create event tap\n");
